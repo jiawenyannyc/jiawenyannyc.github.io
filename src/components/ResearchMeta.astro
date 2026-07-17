@@ -1,0 +1,96 @@
+---
+/**
+ * Research metadata block shown at the top of a research post:
+ * status badge, project id, research question, headline finding, data sources.
+ * All fields are optional — a plain blog post renders nothing.
+ */
+type Status =
+  | "in-sample"
+  | "validated"
+  | "negative-result"
+  | "finding"
+  | "infra";
+
+type Props = {
+  project?: string;
+  question?: string;
+  headline?: string;
+  status?: Status;
+  version?: string;
+  dataSources?: string[];
+};
+
+const { project, question, headline, status, version, dataSources } =
+  Astro.props;
+
+const statusLabel: Record<Status, string> = {
+  "in-sample": "In-sample",
+  validated: "Validated",
+  "negative-result": "Negative result",
+  finding: "Finding",
+  infra: "Infrastructure",
+};
+
+// Semantic colours per status (light + dark).
+const statusClass: Record<Status, string> = {
+  "in-sample":
+    "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
+  validated:
+    "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
+  "negative-result":
+    "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30",
+  finding:
+    "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30",
+  infra: "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30",
+};
+
+const hasMeta =
+  project || question || headline || status || dataSources?.length;
+---
+
+{
+  hasMeta && (
+    <aside class="not-prose border-border bg-muted/40 my-6 rounded-lg border p-4 sm:p-5">
+      <div class="flex flex-wrap items-center gap-2">
+        {status && (
+          <span
+            class:list={[
+              "inline-block rounded-full border px-2.5 py-0.5 text-xs font-semibold",
+              statusClass[status],
+            ]}
+          >
+            {statusLabel[status]}
+          </span>
+        )}
+        {project && (
+          <span class="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+            {project}
+          </span>
+        )}
+        {version && (
+          <span class="text-muted-foreground text-xs">v{version}</span>
+        )}
+      </div>
+
+      {question && (
+        <p class="mt-3 text-sm">
+          <span class="text-muted-foreground font-semibold">Question&nbsp;</span>
+          {question}
+        </p>
+      )}
+
+      {headline && (
+        <p class="border-accent mt-3 border-s-2 ps-3 text-sm font-medium italic">
+          {headline}
+        </p>
+      )}
+
+      {dataSources && dataSources.length > 0 && (
+        <p class="text-muted-foreground mt-3 text-xs">
+          <span class="font-semibold">Data&nbsp;</span>
+          {dataSources.join(" · ")}
+        </p>
+      )}
+    </aside>
+  )
+}

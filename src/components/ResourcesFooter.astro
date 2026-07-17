@@ -1,0 +1,42 @@
+---
+/**
+ * "Resources" footer for a research post: links out to the source repo,
+ * the reproducible analysis notebook, and the live dashboard page.
+ * Renders nothing if none are provided.
+ */
+type Props = {
+  repo?: string;
+  notebook?: string;
+  dashboard?: string;
+};
+
+const { repo, notebook, dashboard } = Astro.props;
+
+const links = [
+  repo && { label: "Source & report", href: repo },
+  notebook && { label: "Analysis notebook", href: notebook },
+  dashboard && { label: "Live dashboard", href: dashboard },
+].filter(Boolean) as { label: string; href: string }[];
+---
+
+{
+  links.length > 0 && (
+    <section class="not-prose mt-10">
+      <h2 class="text-lg font-semibold">Resources</h2>
+      <ul class="mt-3 flex flex-wrap gap-x-6 gap-y-2">
+        {links.map(({ label, href }) => (
+          <li>
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-accent decoration-dashed underline-offset-4 hover:underline"
+            >
+              {label} ↗
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}

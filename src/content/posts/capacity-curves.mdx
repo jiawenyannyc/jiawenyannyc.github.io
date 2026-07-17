@@ -1,0 +1,126 @@
+---
+title: "Strategy Capacity Curves"
+pubDatetime: 2026-07-08T00:00:00Z
+featured: true
+draft: false
+tags:
+  - capacity
+  - transaction-costs
+  - momentum
+  - market-microstructure
+description: "How much capital can each strategy absorb before costs eat the edge? The best-looking signal I tested (Sharpe 0.52) has ~$0 capacity; the worst-looking (0.12) scales to $135M — because decay speed, not gross Sharpe, sets scalability."
+project: "P06"
+question: "How much capital can each strategy absorb before transaction costs eat its edge?"
+headline: "Gross edge and capacity are inversely related: reversal has the top gross Sharpe (0.52) and ~$0 capacity; slow momentum (0.12) scales to $135M."
+status: "finding"
+dataSources:
+  - "yfinance — 200 liquid S&P 500 names, 2010–2024 daily"
+repo: "https://github.com/jiawenyannyc/portfolio-construction/tree/main/capacity_study"
+notebook: "https://github.com/jiawenyannyc/portfolio-construction/blob/main/capacity_study/notebooks/analysis.ipynb"
+---
+
+**Goal.** Quantify how much capital each strategy can absorb before transaction
+costs eat its edge. Hold each book's pre-cost target weights fixed, scale to every
+GMV on a log grid ($1M … $2B), and push the trades through the house cost model
+(5&nbsp;bps spread + ADV-calibrated impact, calibrated so a 1%-of-ADV trade costs
+10&nbsp;bps). Report the **break-even GMV** (net alpha → 0) and **half-capacity
+GMV** (net Sharpe → ½ of frictionless), decompose cost drag into spread vs impact,
+and stress the impact exponent.
+
+The per-dollar cost of a rebalance splits cleanly into a size-invariant spread term
+and a participation-growing impact term:
+
+$$
+\text{cost} \;=\; \underbrace{s \cdot \tau}_{\text{spread}}
+\;+\; \underbrace{\eta \left(\frac{q}{\mathrm{ADV}}\right)^{\gamma}}_{\text{impact}}
+$$
+
+where $\tau$ is one-way turnover, $q$ the per-name trade, and $\gamma$ the impact
+exponent. Books are each run at their net-optimal rebalance frequency (from the
+earlier decay/combination projects): **Momentum** (12-1, 2-weekly), the
+**Combined** IR-composite (weekly), and short-term **Reversal** (1-week signal,
+daily).
+
+## 1. Headline: gross edge and capacity are *inversely* related
+
+| Strategy | Gross Sharpe | Gross alpha | Break-even GMV | Half-capacity GMV |
+|---|---|---|---|---|
+| Momentum (2W) | 0.117 | 1.13%/yr | **$135M** | $28M |
+| Combined (weekly) | 0.349 | 2.89%/yr | $19M | < $1M |
+| Reversal-1w (daily) | 0.517 | 4.41%/yr | **~$0** | < $1M |
+
+**The strategy with the most attractive gross returns has essentially no capacity,
+and the least attractive has the most.** Reversal has the highest gross Sharpe
+(0.52) but is **spread-dominated** — its 8.6%/yr spread drag alone (from ~86×
+annual one-way turnover) exceeds its 4.4% gross alpha, so it loses money net at
+*any* tradeable size. Momentum's slow 12-1 signal turns over little, so its thin
+1.1% gross alpha survives to a **$135M** book. The combined book sits between: a
+healthy 0.35 gross Sharpe, but its faster signals push turnover up and cap it at
+~$19M.
+
+![Net Sharpe and net alpha versus GMV for the three books, with break-even and half-capacity GMV marked.](@/assets/research/capacity-curves/net_curves.png)
+
+This is the capacity paradox every systematic PM lives with: **decay speed, not
+gross Sharpe, sets scalability.** A slow signal with a mediocre Sharpe is worth
+more AUM than a fast signal with a great one.
+
+## 2. Cost decomposition — spread is flat, impact bends
+
+At each GMV the drag splits into a **spread** component (invariant to size — it
+depends only on turnover) and an **impact** component (grows with participation).
+For the slow momentum book, spread drag is a trivial 0.42%/yr and impact only
+overtakes gross alpha past $100M. For reversal, spread drag is 8.6%/yr — the book
+is dead on arrival, before impact even matters. The figures below show the
+gross-alpha line (dashed) and the point where the spread+impact stack crosses it
+(the break-even GMV).
+
+![Cost decomposition for the momentum book: spread stays flat while impact grows with GMV, crossing gross alpha near $135M.](@/assets/research/capacity-curves/cost_decomp_momentum.png)
+
+![Cost decomposition for the reversal book: spread drag alone exceeds gross alpha at every size.](@/assets/research/capacity-curves/cost_decomp_reversal1w.png)
+
+Per-name participation at the ceiling shows momentum comfortably under the 10%-ADV
+cap at $135M, while the fast books would blow through it well before reaching
+meaningful size.
+
+![Histogram of per-name participation at the capacity ceiling for each book.](@/assets/research/capacity-curves/participation_hist.png)
+
+## 3. Impact-model sensitivity — capacity is model-dependent for fast books
+
+Re-running with the Almgren **square-root law** — impact $\propto \sqrt{q/\mathrm{ADV}}$,
+i.e. $\gamma = \tfrac12$ — instead of the house quadratic-in-trade model:
+
+| Strategy | Break-even (quadratic) | Break-even (√-law) |
+|---|---|---|
+| Momentum (2W) | $134.7M | $134.3M |
+| Combined (weekly) | $18.7M | **$2.7M** |
+| Reversal-1w | ~$0 | ~$0 |
+
+**Momentum's capacity is model-robust** (~$135M either way) because it trades near
+the 1%-ADV calibration point where the two laws agree. **The combined book's
+capacity is highly model-dependent** — the √-law, which is steeper at the small
+participations the book actually trades, cuts its break-even by 7× to $2.7M. The
+lesson: capacity numbers for fast, small-trade books carry large model risk and
+should be quoted as ranges, not points; the quadratic model is optimistic there.
+
+![Break-even GMV under the quadratic versus square-root impact laws, per strategy.](@/assets/research/capacity-curves/impact_sensitivity.png)
+
+## 4. Honest limitations
+
+1. **Pre-cost target books, not the traded books.** Capacity is measured on the
+   fixed alpha target (full rebalance to target at each date). The combined
+   strategy is actually traded through a cost-penalised QP whose endogenous
+   no-trade region *raises* capacity — this study measures the raw signal's
+   scalability; the QP is the mitigation.
+2. **Single-name ADV impact, no cross-impact or dynamics.** Real execution spreads
+   trades over time and across correlated names; the static model is a first-order
+   estimate.
+3. **Small gross alphas.** These are unlevered dollar-neutral books on 200 large
+   caps; the *shape* and *ordering* of the capacity curves are the robust story,
+   not the precise dollar ceilings.
+
+## 5. Deliverables
+
+Figures: net Sharpe/alpha vs GMV, per-strategy spread-vs-impact decomposition,
+participation histogram, impact-law sensitivity. Reusable code lives in
+`quantlib.capacity` (`capacity_curve`, `break_even_gmv`, `half_capacity_gmv`,
+`capacity_summary`).

@@ -1,0 +1,73 @@
+---
+import type { CollectionEntry } from "astro:content";
+import { getPostUrl } from "@/utils/getPostPaths";
+import { toTransitionName } from "@/utils/toTransitionName";
+import Datetime from "./Datetime.astro";
+
+type Props = {
+  variant?: "h2" | "h3";
+} & CollectionEntry<"posts">;
+
+const { variant: Heading = "h2", id, data, filePath } = Astro.props;
+
+const { title, description, status, headline, project, ...props } = data;
+
+const statusClass: Record<string, string> = {
+  "in-sample":
+    "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
+  validated:
+    "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
+  "negative-result":
+    "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30",
+  finding:
+    "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30",
+  infra: "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30",
+};
+
+const statusLabel: Record<string, string> = {
+  "in-sample": "In-sample",
+  validated: "Validated",
+  "negative-result": "Negative result",
+  finding: "Finding",
+  infra: "Infrastructure",
+};
+---
+
+<li class="my-6">
+  <a
+    href={getPostUrl(id, filePath, Astro.currentLocale)}
+    class:list={[
+      "text-accent inline-block text-lg font-medium",
+      "decoration-dashed underline-offset-4 hover:underline",
+      "focus-visible:no-underline focus-visible:underline-offset-0",
+    ]}
+  >
+    <Heading transition:name={toTransitionName(title)}>
+      {project && <span class="text-muted-foreground">{project} · </span>}
+      {title}
+    </Heading>
+  </a>
+  <div class="flex flex-wrap items-center gap-2">
+    <Datetime {...props} />
+    {
+      status && (
+        <span
+          class:list={[
+            "inline-block rounded-full border px-2 py-0.5 text-xs font-semibold",
+            statusClass[status],
+          ]}
+        >
+          {statusLabel[status]}
+        </span>
+      )
+    }
+  </div>
+  <p>{description}</p>
+  {
+    headline && (
+      <p class="border-accent text-muted-foreground mt-1 border-s-2 ps-3 text-sm italic">
+        {headline}
+      </p>
+    )
+  }
+</li>
