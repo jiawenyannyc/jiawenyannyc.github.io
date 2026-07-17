@@ -40,7 +40,7 @@ rare outside institutional settings — built from scratch:
 ## Elsewhere
 
 - GitHub — [@jiawenyannyc](https://github.com/jiawenyannyc)
-- LinkedIn — [jiawenyannyc](https://www.linkedin.com/in/jiawenyannyc/)
+- LinkedIn — [Gavin Yan](www.linkedin.com/in/jiawen-gavin-yan-8364a0144)
 - Email — [jiawenyannyc@gmail.com](mailto:jiawenyannyc@gmail.com)
 
 *Nothing here is investment advice or a solicitation — it's research and education.*
