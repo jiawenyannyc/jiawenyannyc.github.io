@@ -30,6 +30,7 @@ jobs:
         # (the theme's build script runs `pagefind` after `astro build`).
         uses: withastro/action@v3
         with:
+          node-version: "24"
           package-manager: pnpm@latest
 
   deploy:
