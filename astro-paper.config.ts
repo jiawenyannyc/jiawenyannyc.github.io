@@ -12,6 +12,10 @@ export default defineAstroPaperConfig({
     lang: "en",
     timezone: "America/New_York",
     dir: "ltr",
+    // Set after signing up free at https://www.goatcounter.com/signup —
+    // use the site code you choose (the part before ".goatcounter.com").
+    // Leave undefined to disable visit analytics.
+    goatcounterCode: "jiawenyannyc",
   },
   posts: {
     perPage: 6,

@@ -19,6 +19,12 @@ interface SiteConfig {
   dir?: "ltr" | "rtl" | "auto";
   /** Google Search Console verification meta tag value */
   googleVerification?: string;
+  /**
+   * GoatCounter site code (the part before ".goatcounter.com" in your
+   * dashboard URL, e.g. "jiawenyannyc"). Sign up free at goatcounter.com.
+   * Omit to disable visit analytics. Only loads on production builds.
+   */
+  goatcounterCode?: string;
 }
 
 interface PostsConfig {
@@ -115,7 +121,7 @@ type ResolvedSiteConfig = Required<
     | "ogImage"
   >
 > &
-  Pick<SiteConfig, "profile" | "googleVerification">;
+  Pick<SiteConfig, "profile" | "googleVerification" | "goatcounterCode">;
 
 export interface ResolvedAstroPaperConfig {
   site: ResolvedSiteConfig;

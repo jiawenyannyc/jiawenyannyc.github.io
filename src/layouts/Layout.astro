@@ -116,6 +116,17 @@ const rssHref = getRelativeLocaleUrl(
     </script>
 
     <ClientRouter />
+
+    {
+      import.meta.env.PROD && site.goatcounterCode && (
+        <script
+          is:inline
+          data-goatcounter={`https://${site.goatcounterCode}.goatcounter.com/count`}
+          async
+          src="//gc.zgo.at/count.js"
+        />
+      )
+    }
   </head>
   <body
     class="bg-background font-app text-foreground selection:bg-accent/75 selection:text-accent-foreground flex min-h-svh flex-col"
