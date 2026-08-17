@@ -1,0 +1,305 @@
+---
+title: "Backtest Overfitting, Part 1: Selection Bias and the Deflated Sharpe Ratio"
+pubDatetime: 2026-08-17T00:00:00Z
+featured: true
+draft: false
+tags:
+  - backtesting
+  - overfitting
+  - deflated-sharpe
+  - validation
+  - afml
+description: "Try 45 strategies with no edge at all and the best one shows an annualized Sharpe of 1.0. That number is not a finding — it is the expected maximum of a search. This is how you measure the damage: PBO, the probabilistic Sharpe ratio, and the deflated Sharpe ratio."
+question: "How much of a backtested Sharpe ratio is skill, and how much is the largest number a search was always going to produce?"
+headline: "Selection bias is the one backtest flaw discipline cannot fix. On a 5-year daily backtest, 45 zero-edge trials manufacture a Sharpe of 1.0 by chance, and a selected Sharpe of 1.5 deflates to 0.54 after 1,000 trials."
+status: "finding"
+dataSources:
+  - "Simulation only — no market data. Monte-Carlo nulls and synthetic strategy families, 5-year daily samples (T = 1,260)."
+repo: "https://github.com/jiawenyannyc/jiawenyannyc.github.io/blob/main/scripts/research/backtest_overfitting_part1.py"
+---
+
+**Goal.** Put a number on the gap between a backtested Sharpe ratio and the
+evidence it actually represents. This post covers the statistical machinery for
+that: where selection bias comes from, how to measure the **probability of
+backtest overfitting (PBO)**, and how the **probabilistic** and **deflated**
+Sharpe ratios turn a point estimate into a probability statement that accounts
+for how hard you searched.
+
+Everything below is simulation. There is no strategy here to be right or wrong
+about — the point is the measurement apparatus, which is the part that
+generalizes. Part 2 will take the same machinery to synthetic data: calibrated
+generators, deep generative models, and what it means to validate a rule on paths
+that never happened.
+
+## 1. Most backtest flaws are procedural. One isn't.
+
+The standard catalogue of backtesting sins is well known: survivorship bias,
+look-ahead bias, storytelling, ignored transaction costs, an edge concentrated in
+a handful of outliers, assuming a costless short. Every one of these is a
+**process defect**, and every one is fixable by discipline — record point-in-time
+release dates, include delisted names, charge realistic spread and impact, check
+what happens when you drop the top 1% of days.
+
+**Selection bias is different in kind.** It survives a perfectly clean pipeline.
+Run enough configurations over data with no exploitable structure at all and the
+best one will look skilled — not because anything leaked, but because you took a
+maximum. Reporting only the winner is the entire mechanism. You cannot tidy your
+way out of it; it has to be corrected *statistically*, by charging the result for
+the size of the search that produced it.
+
+Which means the single most important number about a backtest is one that does
+not appear in the backtest: **how many things you tried.**
+
+## 2. How much Sharpe does a search manufacture?
+
+Take $N$ strategies, all with a true Sharpe of exactly zero, each backtested over
+$T$ observations. Each estimated Sharpe $\widehat{SR}_n$ is noise centred on zero
+with standard deviation $\approx 1/\sqrt{T}$. The *maximum* over $N$ such
+estimates is not centred on zero — it grows roughly like
+
+$$
+\mathrm{E}\!\left[\max_n \widehat{SR}_n\right] \;\approx\; \sqrt{V}\,\sqrt{2\ln N},
+\qquad V = \mathrm{Var}\!\left[\{\widehat{SR}_n\}\right]
+$$
+
+The $\sqrt{2\ln N}$ form is the textbook asymptotic, and it is noticeably
+optimistic at the trial counts people actually run. Bailey and López de Prado's
+Gumbel approximation is the one to use:
+
+$$
+\mathrm{E}\!\left[\max_n \widehat{SR}_n\right] \;\approx\;
+\sqrt{V}\left[(1-\gamma)\,\Phi^{-1}\!\left(1 - \tfrac{1}{N}\right)
+\;+\; \gamma\,\Phi^{-1}\!\left(1 - \tfrac{1}{N e}\right)\right]
+$$
+
+with $\gamma \approx 0.5772$ the Euler–Mascheroni constant. Simulating it
+directly — 3,000 replications of $N$ independent zero-edge backtests, each 1,260
+daily observations — the Gumbel form is essentially exact while $\sqrt{2\ln N}$
+overshoots by ~15% at $N = 1{,}000$ (3.26 vs 3.72 against a Monte-Carlo 3.25).
+
+![Left: expected maximum Sharpe under a zero-skill null versus the number of trials, comparing Monte Carlo against the sqrt(2 ln N) asymptotic and the Gumbel approximation. Right: the same curve translated into annualized Sharpe for a five-year daily backtest.](@/assets/research/backtest-overfitting-part-1/selection_bias.png)
+
+The right panel is the one worth internalizing. Translated into annualized Sharpe
+for a **5-year daily backtest**, where no strategy in the search has any edge
+whatsoever:
+
+| Trials $N$ | Expected best annualized Sharpe |
+|---|---|
+| 4 | 0.50 |
+| 45 | **1.00** |
+| 100 | 1.13 |
+| 1,000 | **1.46** |
+
+Forty-five configurations — one afternoon of grid search over two parameters — is
+enough to produce a Sharpe of 1.0 out of pure noise. A thousand trials, which is
+a modest hyperparameter sweep, gets you to 1.46. Neither number is a finding.
+Both are the expected output of the search.
+
+## 3. Measuring the damage: PBO
+
+Knowing that selection bias inflates the winner is not the same as knowing
+whether *your* selection was inflated. The **probability of backtest overfitting**
+answers a sharper question:
+
+> When I pick the in-sample-best configuration, how often does it land **below the
+> median** out of sample?
+
+If in-sample rank carries real information, the in-sample winner should usually
+stay near the top out of sample and PBO is small. If it carries none, the winner
+is a coin flip against its peers and PBO approaches 50%. Above 50% and in-sample
+rank is actively *misleading* — the selection is picking the configuration that
+was luckiest, and luck reverses.
+
+**Combinatorially symmetric cross-validation (CSCV)** estimates it without
+committing to a single train/test split. Build a $T \times N$ matrix of
+per-period returns, one column per configuration. Cut the rows into $S$ contiguous
+blocks; for every one of the $\binom{S}{S/2}$ ways to choose half the blocks as
+in-sample, take the complement as out-of-sample, find the in-sample winner
+$n^{*}$, and record its **relative rank** $\omega_c \in (0,1)$ among the
+out-of-sample Sharpes. The logit
+
+$$
+\lambda_c = \log\frac{\omega_c}{1 - \omega_c}, \qquad
+\mathrm{PBO} = \Pr[\lambda < 0]
+$$
+
+is negative exactly when the winner underperforms the out-of-sample median, so
+PBO is the mass of the $\lambda$ distribution to the left of zero. The symmetry
+matters: each block serves as training and test data equally often, so there is
+no privileged split to tune against.
+
+Running it on two synthetic families of 50 configurations each — $S = 10$ blocks,
+252 splits, 1,260 daily observations, with a common factor so the configurations
+correlate the way variants of one strategy do:
+
+![Left: CSCV logit distributions for a skilled and an overfit strategy family, with the mass below zero marking PBO. Right: for the overfit family, out-of-sample Sharpe of the in-sample winner plotted against its in-sample Sharpe, with a negative fitted slope.](@/assets/research/backtest-overfitting-part-1/pbo.png)
+
+| Family | PBO | Median OOS Sharpe of the IS winner |
+|---|---|---|
+| Skilled (one configuration has a genuine edge) | **3%** | strongly positive |
+| Overfit (no configuration has any edge) | **62%** | −0.02 |
+
+The skilled family piles up at high $\lambda$: the true best configuration is
+found in nearly every split. The overfit family spreads across the whole range
+with 62% of its mass below zero — worse than a coin flip, because when
+configurations are correlated the in-sample winner is disproportionately the one
+with the largest *idiosyncratic* luck, and that reverses out of sample.
+
+The right panel makes the same point without any ranks. Regressing the winner's
+out-of-sample Sharpe on its in-sample Sharpe gives a slope of **−0.61**. Not
+attenuated toward zero — *negative*. In an overfit family, a better in-sample
+number predicts a worse out-of-sample one. That is the shape of the thing every
+walk-forward chart is designed to hide behind a single path.
+
+## 4. Is this Sharpe distinguishable from zero? The PSR
+
+Selection bias is one problem; estimation error is another, and the Sharpe ratio
+is a badly behaved estimator. Its sampling distribution depends on the third and
+fourth moments of returns, and strategies that sell tail risk have exactly the
+skew and kurtosis that make a naive $t$-test optimistic.
+
+The **probabilistic Sharpe ratio** fixes both by reporting a probability instead
+of a point estimate:
+
+$$
+\widehat{\mathrm{PSR}}(SR^{*}) = \Phi\!\left[
+\frac{\left(\widehat{SR} - SR^{*}\right)\sqrt{T-1}}
+{\sqrt{1 - \gamma_3\widehat{SR} + \frac{\gamma_4 - 1}{4}\widehat{SR}^{\,2}}}
+\right]
+$$
+
+where $\gamma_3$ is skewness, $\gamma_4$ raw kurtosis, and $SR^{*}$ the benchmark
+being tested against. The denominator is the whole story: **negative skew
+increases the standard error** (the $-\gamma_3\widehat{SR}$ term grows), and so
+does excess kurtosis. Inverting for the length of record needed to clear a
+confidence level $\alpha$ gives the **minimum track record length**:
+
+$$
+\mathrm{MinTRL} = 1 + \left[1 - \gamma_3\widehat{SR}
++ \frac{\gamma_4 - 1}{4}\widehat{SR}^{\,2}\right]
+\left(\frac{\Phi^{-1}(\alpha)}{\widehat{SR} - SR^{*}}\right)^{2}
+$$
+
+![Left: PSR against track record length for an observed annualized Sharpe of 1.0 under three return distributions. Right: minimum track record length in months needed for 95% confidence, as a function of the observed Sharpe.](@/assets/research/backtest-overfitting-part-1/psr.png)
+
+For an observed annualized Sharpe of 1.0 on monthly returns, the months required
+to be 95% confident the true Sharpe is positive:
+
+| Return distribution | MinTRL |
+|---|---|
+| Normal ($\gamma_3 = 0,\ \gamma_4 = 3$) | 35 months |
+| Fat tails ($\gamma_3 = 0,\ \gamma_4 = 8$) | 38 months |
+| Negative skew + fat tails ($\gamma_3 = -1.5,\ \gamma_4 = 8$) | **52 months** |
+
+Same Sharpe, same confidence level, **50% more data required** once the return
+distribution looks like an actual short-volatility book. A note on units, because
+it changes the reading: these higher-moment terms scale with $\widehat{SR}^{\,2}$
+in per-observation units, so at daily frequency ($\widehat{SR} \approx 0.06$)
+they are numerically invisible and PSR collapses to the plain $t$-statistic. The
+correction bites at monthly frequency — which is also how allocators actually see
+a Sharpe ratio reported.
+
+## 5. Deflating for the search: the DSR
+
+PSR tests one track record in isolation. The **deflated Sharpe ratio** is PSR
+with the benchmark set to what the search alone would have produced:
+
+$$
+\mathrm{DSR} = \widehat{\mathrm{PSR}}\left(SR^{*}\right), \qquad
+SR^{*} = \sqrt{V}\left[(1-\gamma)\Phi^{-1}\!\left(1 - \tfrac{1}{N}\right)
++ \gamma\,\Phi^{-1}\!\left(1 - \tfrac{1}{N e}\right)\right]
+$$
+
+That $SR^{*}$ is exactly the expected maximum from Section 2. The test is no
+longer "is this Sharpe greater than zero" but **"is this Sharpe greater than the
+best number my search was always going to find."**
+
+![Left: the deflated Sharpe threshold rising with the number of trials, against a fixed observed Sharpe of 1.5. Right: the DSR of that strategy collapsing as the trial count grows.](@/assets/research/backtest-overfitting-part-1/dsr.png)
+
+For a selected strategy showing an annualized Sharpe of **1.5** over a 5-year
+daily backtest:
+
+| Effective trials $N$ | Threshold $SR^{*}$ | DSR |
+|---|---|---|
+| 10 | 0.70 | 0.96 |
+| 100 | 1.13 | 0.79 |
+| 1,000 | 1.46 | **0.54** |
+
+The observed number never changes. The evidence it constitutes collapses — from
+significant at 95%, to inconclusive, to a coin flip. The strategy is significant
+at the 95% level only if the search behind it was **13 trials or fewer**; by
+~1,400 trials the threshold has caught up with the observed Sharpe entirely and
+DSR hits 0.50.
+
+**Is a DSR of 0.54 a rejection?** No — and treating it as one is its own mistake.
+It is a statement that the backtest carries almost no information either way. The
+correct responses are to shrink the search, extend the sample, or hold the
+strategy in paper for a defined period and re-test — not to bin it, and
+emphatically not to run more variants until one clears the bar, which raises $N$
+and moves the bar with it.
+
+## 6. What this changes in practice
+
+The machinery only works if you can state $N$, which turns a statistical result
+into an operational requirement: **keep a trials ledger.** Every configuration
+evaluated against the data goes in it, not just the ones retained. A search whose
+size is unknown cannot be deflated, and an undeflatable backtest is an
+uninterpretable one.
+
+Three practical notes on doing that honestly:
+
+1. **Trials are not independent, so raw $N$ overstates the search.** Fifty
+   variants of one momentum signal are nearly the same trial; fifty unrelated
+   signal families are not. What the formula wants is an *effective* trial count.
+   Clustering the trial returns and counting clusters is the standard
+   approximation, and it is a genuinely soft number — quote DSR as a range across
+   a plausible $N$, not a point.
+2. **The count starts before the code does.** Configurations you rejected by
+   eyeballing a chart, features you dropped after a first look, the universe you
+   switched to when the first one disappointed — all of it is selection, and none
+   of it appears in a parameter grid.
+3. **The threshold rises with $\sqrt{V}$ too.** A search whose trial Sharpes are
+   widely dispersed produces a larger maximum than one where they cluster. $V$ is
+   estimated from the trial set, which is another reason to keep the losers.
+
+## 7. Honest limitations
+
+1. **The nulls here are clean.** Zero-edge trials with iid Gaussian returns and,
+   in the CSCV experiment, a single common factor. Real strategy families are
+   correlated in messier, time-varying ways, which affects both $V$ and the
+   effective trial count. The *shape* of these curves is robust; the specific
+   trial counts are illustrative.
+2. **DSR assumes trial Sharpes are approximately Gaussian across trials.** With
+   strongly non-normal trial distributions the Gumbel maximum is an
+   approximation, though a good one in the regimes tested here.
+3. **PBO is a property of a family, not a verdict on a strategy.** A low PBO says
+   your selection procedure has signal; it does not say the selected
+   configuration will make money net of costs. Capacity and cost analysis is a
+   separate gate — see the [capacity study](/posts/capacity-curves) for what
+   happens to a Sharpe-0.52 signal once you charge it for spread.
+4. **No multiple-testing correction is a substitute for held-out data.** All of
+   this deflates a number computed on data you have already looked at. It raises
+   the bar; it does not manufacture new evidence.
+
+## 8. Coming in Part 2
+
+The natural response to "one historical path is not enough evidence" is to
+manufacture more paths. Part 2 takes up backtesting on **synthetic data**: mean-
+reverting processes with a known edge as a controlled testbed, the taxonomy of
+generators (block bootstrap, parametric, deep generative), and where TimeVAE,
+TimeGAN and diffusion models actually help. Plus the uncomfortable part — a
+generator that memorizes its training set provides no independent evidence, and
+optimizing a rule over synthetic paths overfits the *generator* rather than the
+market. Selection bias does not go away when you make more data. It just gets
+harder to see.
+
+---
+
+**References.** Bailey & López de Prado (2012), *The Sharpe Ratio Efficient
+Frontier* — PSR and MinTRL. Bailey, Borwein, López de Prado & Zhu (2016), *The
+Probability of Backtest Overfitting* — CSCV and PBO. Bailey & López de Prado
+(2014), *The Deflated Sharpe Ratio*. López de Prado, *Advances in Financial
+Machine Learning*, chapters 11–14.
+
+The simulation code for every figure is a single self-contained script — see the
+repository link above.
