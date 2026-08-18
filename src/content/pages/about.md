@@ -3,9 +3,21 @@ title: "About"
 description: "Jiawen Yan — systematic quant researcher building and publishing a fund-grade research platform, negative results included."
 ---
 
-I'm **Jiawen Yan**, a systematic / quantitative researcher. This site is the
-long-form home for my research: full write-ups, the figures behind them, and the
-findings — including the ones that didn't work.
+I’m a quant guy interested in systematic investing, portfolio construction,
+financial planning and the occasional optimization problem that behaves nicely.
+
+By day, I work on turning noisy financial data into models and hopefully useful
+decisions. By night, I read papers, build side projects, and convince myself that
+one more backtest is statistically justified.
+
+Outside of work, I like to keep things equally structured and competitive: I
+enjoy long, intensive 70-mile road bike rides on Saturday mornings up 9W, have
+played soccer since I was a kid, and got completely obsessed with tennis about
+four years ago.
+
+This site is where I keep research notes, experiments, and ideas on quantitative
+investing, optimization, factor models, simulation, and whatever else I’m
+currently overthinking.
 
 ## The positioning
 
@@ -43,4 +55,5 @@ rare outside institutional settings — built from scratch:
 - LinkedIn — [Gavin Yan](https://www.linkedin.com/in/jiawen-gavin-yan-8364a0144/)
 - Email — [jiawenyannyc@gmail.com](mailto:jiawenyannyc@gmail.com)
 
-*Nothing here is investment advice or a solicitation — it's research and education.*
+*Views are my own. Results, unfortunately, are also my own. Nothing here is
+investment advice or a solicitation — it’s research and education.*
