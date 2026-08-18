@@ -31,6 +31,7 @@ const posts = defineCollection({
           "validated",
           "negative-result",
           "finding",
+          "study",
           "infra",
         ])
         .optional(),

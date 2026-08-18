@@ -32,13 +32,12 @@ corepack pnpm build     # astro check + build + pagefind (what CI runs)
 
 ```yaml
 ---
-title: "Strategy Capacity Curves"          # no "Project NN —" prefix; that goes in `project`
+title: "Strategy Capacity Curves"          # no "Project NN —" prefix
 pubDatetime: 2026-07-08T00:00:00Z          # required
 featured: true                              # optional — surfaces on the home page
 draft: false                                # true hides it from build
 tags: [capacity, transaction-costs, momentum]
 description: "One-to-two sentence hook — this is the card summary, the OG text, and search snippet."
-project: "P06"                              # optional research id
 question: "The one-line research question." # optional — from the repo README table
 headline: "The headline finding."           # optional — from the repo README table
 status: "finding"                           # in-sample | validated | negative-result | finding | infra
@@ -60,6 +59,7 @@ Resources footer (bottom) — see `src/components/ResearchMeta.astro` and
 | status | use for |
 |---|---|
 | `finding` | a robust result/analysis (capacity, attribution, shadow prices) |
+| `study` | a methodology / literature walk-through rather than a result of my own |
 | `negative-result` | a plausible edge that failed OOS / deflation |
 | `in-sample` | a first read, holdout still sealed |
 | `validated` | survived the harness (**process only — keep the spec private**) |

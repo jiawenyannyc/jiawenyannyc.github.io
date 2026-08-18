@@ -1,7 +1,7 @@
 ---
 /**
  * Research metadata block shown at the top of a research post:
- * status badge, project id, research question, headline finding, data sources.
+ * status badge, research question, headline finding, data sources.
  * All fields are optional — a plain blog post renders nothing.
  */
 type Status =
@@ -9,10 +9,10 @@ type Status =
   | "validated"
   | "negative-result"
   | "finding"
+  | "study"
   | "infra";
 
 type Props = {
-  project?: string;
   question?: string;
   headline?: string;
   status?: Status;
@@ -20,14 +20,14 @@ type Props = {
   dataSources?: string[];
 };
 
-const { project, question, headline, status, version, dataSources } =
-  Astro.props;
+const { question, headline, status, version, dataSources } = Astro.props;
 
 const statusLabel: Record<Status, string> = {
   "in-sample": "In-sample",
   validated: "Validated",
   "negative-result": "Negative result",
   finding: "Finding",
+  study: "Study",
   infra: "Infrastructure",
 };
 
@@ -42,10 +42,11 @@ const statusClass: Record<Status, string> = {
   finding:
     "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30",
   infra: "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30",
+  study:
+    "bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30",
 };
 
-const hasMeta =
-  project || question || headline || status || dataSources?.length;
+const hasMeta = question || headline || status || dataSources?.length;
 ---
 
 {
@@ -60,11 +61,6 @@ const hasMeta =
             ]}
           >
             {statusLabel[status]}
-          </span>
-        )}
-        {project && (
-          <span class="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
-            {project}
           </span>
         )}
         {version && (

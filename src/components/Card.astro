@@ -10,7 +10,7 @@ type Props = {
 
 const { variant: Heading = "h2", id, data, filePath } = Astro.props;
 
-const { title, description, status, headline, project, ...props } = data;
+const { title, description, status, headline, ...props } = data;
 
 const statusClass: Record<string, string> = {
   "in-sample":
@@ -22,6 +22,8 @@ const statusClass: Record<string, string> = {
   finding:
     "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30",
   infra: "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30",
+  study:
+    "bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30",
 };
 
 const statusLabel: Record<string, string> = {
@@ -30,6 +32,7 @@ const statusLabel: Record<string, string> = {
   "negative-result": "Negative result",
   finding: "Finding",
   infra: "Infrastructure",
+  study: "Study",
 };
 ---
 
@@ -43,7 +46,6 @@ const statusLabel: Record<string, string> = {
     ]}
   >
     <Heading transition:name={toTransitionName(title)}>
-      {project && <span class="text-muted-foreground">{project} · </span>}
       {title}
     </Heading>
   </a>
