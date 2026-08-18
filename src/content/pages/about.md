@@ -1,6 +1,6 @@
 ---
 title: "About"
-description: "Jiawen Yan — systematic quant researcher building and publishing a fund-grade research platform, negative results included."
+description: "Jiawen Yan — study notes and experiments on systematic investing, portfolio construction, and optimization, written up in full, negative results included."
 ---
 
 I’m a quant guy interested in systematic investing, portfolio construction,
@@ -19,35 +19,25 @@ This site is where I keep research notes, experiments, and ideas on quantitative
 investing, optimization, factor models, simulation, and whatever else I’m
 currently overthinking.
 
-## The positioning
+## What's here
 
-The quant-content space has two saturated modes: backtest porn (fake Sharpes,
-selling courses) and academic papers (rigorous but unreadable). The empty seat in
-the middle is the practitioner voice that says: *I built the full stack, ran the
-honest tests, and here is what died — with the deflation math.*
+Two kinds of posts, mostly. Some are **study notes**: I read something, then work
+through it until the numbers are mine rather than quoted. The backtest-overfitting
+post started that way — chapters 11–14 of López de Prado's *Advances in Financial
+Machine Learning*, read for a study group — and writing the simulations myself was
+the only way I came to actually believe the deflation math.
 
-That's the whole brand. Every finding here is either a mechanism that survived
-scrutiny or a plausible edge that didn't — reported with the statistics that tell
-the two apart (deflated Sharpe, PBO, out-of-sample gates). Publishing negatives is
-free; any signal that ever survives the harness stays private.
+The rest are **experiments** on whatever I'm curious about at the time: how fast a
+signal decays, what a trade really costs, when multi-period optimization earns its
+complexity, how much of a backtested Sharpe survives being charged for the search
+that produced it.
 
-## The platform
-
-Behind the posts is a layered, tested research stack — the kind of thing that's
-rare outside institutional settings — built from scratch:
-
-- **Risk** — a Barra-style structural factor risk model (`Σ = B·F·Bᵀ + Δ`),
-  point-in-time exposures, WLS factor returns, shrinkage factor covariance.
-- **Construction** — decay-aware signal weighting, a cost-penalised QP with
-  optional multi-period look-ahead, constraint shadow prices, and return/risk
-  attribution that reconciles to machine precision.
-- **Validation** — an anti-overfit harness: freeze-date holdout, walk-forward
-  folds, probabilistic & deflated Sharpe, and PBO via CSCV. A trials ledger charges
-  the honesty bar for every backtest run.
-- **Capacity & regimes** — strategy capacity curves under a calibrated cost model,
-  and a from-scratch Gaussian HMM for regime-conditional risk control.
-- **Execution** — backtest/paper parity: the same decision code runs in both, with
-  only the data source and broker swapped.
+Either way, I try to publish the whole thing — the reasoning, the figures, the
+code, and the results that went nowhere. Negative results are the cheapest to
+share and often the most useful: claims that something works are easy to find, and
+honest accounts of what it took to check are not. The exception is the obvious
+one — if a signal ever survives the full validation harness, the write-up stays
+about the method and the spec stays private.
 
 ## Elsewhere
 
