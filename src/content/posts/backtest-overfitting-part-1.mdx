@@ -1,6 +1,6 @@
 ---
 title: "Backtest Overfitting, Part 1: Selection Bias and the Deflated Sharpe Ratio"
-pubDatetime: 2026-08-17T00:00:00Z
+pubDatetime: 2026-07-17T00:00:00Z
 featured: true
 draft: false
 tags:
@@ -17,6 +17,17 @@ dataSources:
   - "Simulation only — no market data. Monte-Carlo nulls and synthetic strategy families, 5-year daily samples (T = 1,260)."
 repo: "https://github.com/jiawenyannyc/jiawenyannyc.github.io/blob/main/scripts/research/backtest_overfitting_part1.py"
 ---
+
+This post grew out of working through **Marcos López de Prado's *Advances in
+Financial Machine Learning*** — specifically chapters 11–14, the run that takes
+you from *why backtests lie* to *what to do about it*: the dangers of
+backtesting, cross-validation, synthetic data, and backtest statistics. I read
+them for a financial-ML study group and came away convinced that the book's
+central claim is stronger than it first sounds. It is not that backtests are
+noisy. It is that **the standard practice of reporting the best result of a
+search is, by construction, a biased estimator** — and that the bias is large,
+computable, and almost never computed. What follows is my attempt to compute it,
+from scratch, so the numbers are mine rather than quoted.
 
 **Goal.** Put a number on the gap between a backtested Sharpe ratio and the
 evidence it actually represents. This post covers the statistical machinery for
