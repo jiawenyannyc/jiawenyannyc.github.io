@@ -1,0 +1,374 @@
+---
+title: "Is Multi-Period Optimization Worth It?"
+pubDatetime: 2026-07-03T12:00:00Z
+featured: false
+draft: false
+tags:
+  - multi-period-optimization
+  - dynamic-programming
+  - mpc
+  - transaction-costs
+  - simulation
+description: "Dynamic programming beats repeated single-period optimization — but by how much, and when? In a linear-quadratic lab where the optimum is computable, the answer is 8% at a realistic calibration, and the step that actually matters is one rung lower down the ladder."
+project: "P03"
+question: "Does multi-period optimization (DP, MPC) beat solving a single-period problem repeatedly — by how much, and under what conditions?"
+headline: "A cost-aware single-period policy captures 92% of the DP optimum; two steps of look-ahead capture 98%. The 4× gain is cost-blind → cost-aware, not myopic → multi-period."
+status: "finding"
+dataSources:
+  - "Simulation — linear-quadratic trading lab, 15 assets, two OU alpha factors, exact certainty-equivalents via Lyapunov equations"
+  - "yfinance — 200 liquid S&P 500 names, 2011–2024 daily, 5-signal composite (illustration only)"
+repo: "https://github.com/jiawenyannyc/portfolio-construction/tree/main/studies/multiperiod_value"
+notebook: "https://github.com/jiawenyannyc/portfolio-construction/blob/main/studies/multiperiod_value/notebooks/analysis.ipynb"
+---
+
+Every practitioner treatment of portfolio construction eventually gets to the
+multi-period argument: today's trade changes tomorrow's starting position, so
+optimizing each day in isolation must be wrong. It is a correct argument, and it
+is usually where the discussion stops — with dynamic programming established as
+*better* but never as *better by how much*. That gap matters, because the
+multi-period machinery is not free. It needs a model of how alpha decays, and it
+buys its optimality by trusting that model.
+
+So I wanted a number. Not "DP dominates" but "DP is worth X% of the objective,
+and here is the region of parameter space where X is large enough to care."
+
+**The first thing to establish is that a backtest cannot answer this.** In the
+lab below, the cost-aware single-period policy runs at an annualized net Sharpe
+of 1.84 and the full dynamic-programming optimum at 1.92 — a real gap, and one
+that shows up in the certainty-equivalent as a clean 8%. Simulating 400
+independent five-year paths, the standard deviation of a *single* path's Sharpe
+is 0.43. To resolve a difference of 0.079 at two standard errors on independent
+data, you would need roughly **600 years** of it. Even running both policies on
+the *same* 400 paths — paired, common random numbers, the most favorable
+comparison available — the DP loses to the myopic policy on 25% of five-year
+paths.
+
+That is the whole methodological problem in one line. The effect is real, it is
+economically meaningful, and it is invisible at the sample sizes anyone actually
+has. Which means it has to be established somewhere the truth is known.
+
+## 1. Building a lab where the answer is computable
+
+The requirement is a model rich enough to contain the multi-period effect and
+poor enough that its optimum can be written down. Multi-period value comes from
+*coupling* between periods, and coupling needs two ingredients: trading has to
+cost something (otherwise each period is independent), and the opportunity has to
+change in a predictable way (otherwise there is nothing to look ahead to). The
+minimal setting with both is the Gârleanu–Pedersen structure:
+
+$$
+\begin{aligned}
+f_{t+1} &= (I - \Phi)\, f_t + \psi_t, & \psi_t &\sim N(0,\, S_\psi) \\
+r_{t+1} &= B f_t + u_{t+1}, & u_t &\sim N(0,\, \Sigma) \\
+\mathrm{TC}(\Delta x_t) &= \tfrac{\lambda}{2}\, \Delta x_t^{\top} \Sigma\, \Delta x_t
+\end{aligned}
+$$
+
+with the objective
+
+$$
+\max \; \mathbb{E} \sum_t \left[\, x_t^{\top} B f_t
+\;-\; \tfrac{\gamma}{2}\, x_t^{\top}\Sigma x_t
+\;-\; \tfrac{\lambda}{2}\, \Delta x_t^{\top}\Sigma\, \Delta x_t \,\right].
+$$
+
+Alpha is driven by mean-reverting factors $f$ (I use two: one with a 5-day
+half-life, one with 30), returns load on them through $B$, and trading is charged
+quadratically.
+
+Three properties make this worth the loss of realism, and they are the reason to
+accept quadratic costs rather than something more faithful:
+
+1. **The optimum is computable.** The problem is linear-quadratic, so the value
+   function is quadratic and value iteration on the Bellman equation converges to
+   the exact optimal policy — no closed-form formula taken on trust.
+2. **Every policy is linear**, of the form $x_t = P x_{t-1} + Q f_t$. Markowitz,
+   the cost-aware myopic rule, $T$-step MPC and the DP optimum all live in the
+   same family and differ only in $(P, Q)$, so comparisons are apples to apples.
+3. **Objective values are exact.** For a linear policy, the state $(x_{t-1},
+   f_t)$ is a linear Gaussian system; its stationary covariance solves a discrete
+   Lyapunov equation, and every term of the objective reads off that covariance.
+   The certainty-equivalent of a policy is computed, not estimated. **No
+   Monte-Carlo noise anywhere in the main results.**
+
+The calibration is deliberately mid-range rather than tuned: 15 assets at 24%
+annualized volatility, per-asset alpha volatility 3% of asset volatility, risk
+aversion $\gamma = 10$, cost scale $\lambda/\gamma = 5$. Every headline number
+gets swept over the two parameters that could plausibly change the answer — the
+cost scale and the fast factor's half-life — in §5, so nothing rests on the
+central point.
+
+## 2. Making sure the solver is right
+
+A "proof by computation" is only as good as the code, and value iteration is easy
+to get subtly wrong. The check I trust here is not a unit test but a
+**convergence identity between two independent solution methods**.
+
+Model predictive control solves a $T$-step deterministic look-ahead problem,
+executes only the first step, and re-solves next period. It has nothing to do
+with the Bellman recursion — it is a finite quadratic program in the stacked
+future positions. But in a linear-quadratic problem certainty equivalence holds,
+so the deterministic look-ahead must converge to the stochastic optimum as $T$
+grows. And at $T = 1$, MPC is by construction the single-period cost-aware
+problem. So two facts have to hold simultaneously:
+
+| Look-ahead $T$ | max deviation of $P$ from DP | max deviation of $Q$ from DP | equals myopic? |
+|---|---|---|---|
+| 1 | 1.9e−1 | 6.0e−2 | **yes (exactly)** |
+| 5 | 6.9e−3 | 2.8e−3 | no |
+| 20 | 1.2e−8 | 1.1e−6 | no |
+| 40 | **2.2e−16** | **1.1e−16** | no |
+
+Two solvers written from different principles agree to machine precision, and the
+$T=1$ case reproduces the myopic policy exactly. That is the validation of both,
+and it also means the myopic policy is not a strawman — it is a *member* of the
+same MPC family, the $T=1$ member.
+
+As a third check, Monte-Carlo simulation converges to the Lyapunov values as the
+simulated horizon grows: at 80 years per path the MC estimate of the DP's
+certainty-equivalent is 0.2007 against the exact 0.1985, and the *difference*
+between DP and myopic comes in at 0.0165 versus the exact 0.0168.
+
+## 3. What the DP is actually doing differently
+
+Before any numbers, the mechanism — this is the part that survives when the LQ
+assumptions do not.
+
+Solve the myopic problem and the optimal policy is
+$P = \tfrac{\lambda}{\gamma+\lambda} I$: each period, trade a fixed fraction
+$1 - \tfrac{\lambda}{\gamma+\lambda}$ of the way from where you are to the
+**cost-free Markowitz target**. At the central calibration that fraction is
+$1/6$ — 17% of the gap per day.
+
+Solve the DP and the policy has the *same shape*, $P = c\,I$ with $c$ from the
+converged Riccati recursion, but two things change. First, $c = 0.642$, so the DP
+closes **36% of the gap per day** — more than twice as fast. Second, and this is
+the substantive difference, it is not aiming at the Markowitz target. Writing
+the DP's destination as $\text{aim} = (I - P)^{-1} Q f$, the weight it places on
+a factor with mean-reversion rate $\phi$ is the factor's Markowitz weight
+shrunk by
+
+$$
+\theta(\phi) \;=\; \frac{1 - c}{1 - c\,(1 - \phi)}
+$$
+
+which is exactly the algebra of an exponentially-weighted average of the current
+and all *expected future* Markowitz targets, discounted at the policy's own
+persistence $c$. I checked this against the numerically solved policy rather than
+asserting it: the formula reproduces the DP's aim to **6e−11** for the fast
+factor and **8e−10** for the slow one.
+
+![Left: the weight the DP's aim gives each alpha factor relative to the Markowitz target, as a function of factor half-life, for three cost levels — fast factors are discounted hard, and harder when trading is expensive. Right: the share of the gap to the destination closed per day by the DP and by the myopic policy, versus the transaction-cost scale.](@/assets/research/multiperiod-value/aim_mechanism.png)
+
+At the central calibration the fast factor (5-day half-life) enters the DP's aim
+at **0.81** of its Markowitz weight and the slow factor (30-day) at **0.96**. The
+DP is muting the signal that will have decayed before the position is fully on,
+and keeping the one that will still be there. Nothing in the myopic problem can
+express this — it discounts *nothing*, because it does not know there is a
+tomorrow.
+
+Two things worth flagging, because both cut against the usual intuition:
+
+- **The multi-period policy trades more, not less.** In simulation the DP runs
+  46× annual turnover against the myopic policy's 31×, and pays 2.2× the
+  transaction costs. The folklore that look-ahead makes you patient is backwards
+  here. Look-ahead lets you be *aggressive about the right things* — because the
+  destination is already discounted for decay, moving toward it fast is safe.
+- **This is the same $a/(a+\lambda)$ discount** I bolted onto the signal weights
+  in the [signal-combination study](https://github.com/jiawenyannyc/portfolio-construction/tree/main/studies/signal_combination)
+  as a heuristic. Here it drops out of the optimality conditions. That is the
+  useful transfer: you can get most of the multi-period benefit by discounting
+  fast signals in a single-period problem, without any dynamic program at all.
+
+![Positions in one asset over 150 simulated days under three policies. The cost-blind Markowitz book jumps onto the target and jitters; the cost-aware myopic book lags it smoothly; the DP book tracks closer, having already discounted the fast component of the target.](@/assets/research/multiperiod-value/policy_illustration.png)
+
+## 4. The ladder — and the rung that actually matters
+
+Now the numbers. Exact certainty-equivalents, annualized, decomposed into their
+three terms:
+
+| Policy | Alpha | − Risk | − Cost | **CE** | % of DP |
+|---|---|---|---|---|---|
+| Markowitz monthly (fixed frequency) | | | | −0.065 | — |
+| Markowitz weekly (fixed frequency) | | | | −0.002 | — |
+| Markowitz daily (cost-blind) | 0.515 | 0.257 | 0.216 | 0.041 | 21% |
+| **Single-period cost-aware, repeated** | 0.376 | 0.182 | 0.013 | **0.182** | **91.6%** |
+| MPC, 5-step look-ahead | 0.405 | 0.179 | 0.028 | 0.198 | 99.9% |
+| **Dynamic programming (optimal)** | 0.397 | 0.171 | 0.027 | **0.199** | 100% |
+
+(The two fixed-frequency rows require Monte-Carlo — a calendar rule is not a
+linear policy — so they carry sampling error; everything else is exact.)
+
+![Certainty-equivalent and net Sharpe by policy at the central calibration, with Monte-Carlo error bars and annualized turnover.](@/assets/research/multiperiod-value/policy_comparison.png)
+
+The headline is the *ordering of the gaps*, not any single number:
+
+- **Cost-blind → cost-aware: 4.4×** (0.041 → 0.182). The cost-blind book earns
+  the most alpha of anything in the table, 0.515, and gives 0.216 of it straight
+  back in trading. Putting one penalty term in the one-period objective recovers
+  almost all of that.
+- **Cost-aware → optimal: +9%** (0.182 → 0.199). Real, and one-tenth the size of
+  the first step.
+- **Fixed-frequency rebalancing is dominated** by even the cost-blind daily
+  policy, and monthly rebalancing has a *negative* certainty-equivalent here.
+  Slowing down on the calendar is a crude proxy for a cost penalty: it reduces
+  turnover, but it cannot tell an urgent trade from a marginal one, which is
+  precisely what the penalty does.
+
+Read the decomposition row by row and the DP's edge is visible in the mechanism
+of §3: relative to myopic it buys 0.021 more alpha and 0.011 less risk, and pays
+0.015 more in costs for the privilege.
+
+## 5. When does it matter? The map
+
+The 8% gap at the central calibration is one point in a parameter space, and the
+two parameters that should govern it are the ones that create the coupling: how
+expensive trading is, and how fast alpha decays. Sweeping both and evaluating
+exactly at every grid point:
+
+![Heatmap of the certainty-equivalent lost by the repeated single-period policy relative to DP, over transaction-cost scale (columns) and fast-signal half-life (rows). Losses run from under 1% at cheap trading to 46% at extreme costs.](@/assets/research/multiperiod-value/myopia_loss_heatmap.png)
+
+- **Cheap trading (λ/γ ≤ 0.5): under 1%.** Myopia is essentially free. This is
+  the formal version of the obvious point — with no friction, the periods do not
+  couple, and there is nothing for look-ahead to exploit.
+- **Expensive trading (λ/γ ≥ 20): 20–46%.** When every trade is precious,
+  knowing where you will want to be next month is most of the problem.
+- **Cost drives it; speed only modulates it.** Moving across the cost axis at
+  fixed speed changes the loss by an order of magnitude; moving across the speed
+  axis at fixed cost changes it by a factor of two. And the speed effect is
+  **hump-shaped**, not monotone — at λ/γ = 50 the loss peaks at a 8-day half-life
+  (46%) and falls off in both directions. Ultra-fast alpha is hopeless for
+  everyone and both policies decline to chase it; slow alpha is easy for
+  everyone. The dangerous zone is alpha *just* fast enough to tempt a myopic
+  optimizer into buying something that will be gone before the position is on.
+- **At realistic frictions (λ/γ ≈ 2–5, half-life 3–5 days): 2.5–9%.**
+
+Worth noting what the same map says about the *other* comparison: at the central
+calibration, cost-blindness costs 79% of the DP's certainty-equivalent, and in
+the expensive corner it goes past 100% — the cost-blind policy's CE turns
+negative. The two ladder steps are not close.
+
+## 6. How much look-ahead do you actually need?
+
+If the DP is worth 9% at the central calibration, the practical question is
+whether you need the Bellman equation to collect it. MPC with horizon $T$ is a
+small convex quadratic program — something you can put in production with
+constraints, which the DP cannot handle. So: exact CE as a function of $T$.
+
+![Percentage of the DP certainty-equivalent captured by MPC as a function of look-ahead horizon, rising from 91.6% at T=1 to essentially 100% by T=5.](@/assets/research/multiperiod-value/mpc_horizon.png)
+
+| Look-ahead $T$ | % of DP captured |
+|---|---|
+| 1 (= repeated single-period) | 91.6% |
+| 2 | 98.4% |
+| 3 | 99.5% |
+| 5 | 99.9% |
+
+**Two steps of look-ahead close 80% of the myopia gap; five close all of it.**
+The value of look-ahead is concentrated almost entirely in the first step or two
+— which makes sense given §3, where the aim is an exponentially-weighted average
+whose weights decay at $c = 0.64$ per period.
+
+This is the actionable result. Nobody needs an infinite-horizon dynamic program
+in production; a two-to-five step convex QP is indistinguishable from optimal,
+and unlike the DP it survives contact with constraints, transaction-cost models
+that are not quadratic, and everything else real books have. It is also why
+Boyd et al.'s multi-period convex framework is the industry standard rather than
+Riccati recursions.
+
+## 7. Real data, honestly
+
+The simulation says look-ahead should be worth roughly 10% of a small number.
+Running it on an actual panel is not going to *prove* anything — see the 600-year
+estimate at the top — but it is worth checking the sign and the mechanism on the
+5-signal composite from the [signal-combination study](https://github.com/jiawenyannyc/portfolio-construction/tree/main/studies/signal_combination):
+200 S&P 500 names, 2011–2024, daily cost-penalised QP with dollar-neutrality,
+GMV and per-name position limits, spread plus impact costs.
+
+The myopic engine ($T = 1$) is compared against a blocked-MPC version ($T = 3$,
+each block about one alpha horizon, forecasts decayed along the horizon at the
+composite's fitted rate of 0.060/day) — identical data, costs, signals and
+constraints, differing only in look-ahead.
+
+![Left: net Sharpe against annualized turnover for the myopic and look-ahead engines at three cost-aversion levels. Right: net Sharpe by cost aversion, with and without look-ahead.](@/assets/research/multiperiod-value/real_data_lookahead.png)
+
+| Cost aversion $\kappa$ | gross Sharpe $T{=}1$ → $T{=}3$ | net Sharpe $T{=}1$ → $T{=}3$ | turnover $T{=}1$ → $T{=}3$ |
+|---|---|---|---|
+| 2 | 0.29 → 0.32 | −0.044 → −0.034 | 15.9× → 13.2× |
+| 5 | 0.29 → 0.32 | 0.130 → **0.114** | 6.7× → 5.2× |
+| 10 | 0.22 → 0.28 | 0.145 → **0.168** | 2.3× → 1.9× |
+
+What is consistent: look-ahead raises gross Sharpe at every cost-aversion level
+and cuts turnover 17–23% at every level. That is the mechanism from §3 showing up
+in the right place — the engine declines to chase the fast component it knows
+will decay.
+
+What does not follow the script: **net Sharpe gets worse at κ = 5**, 0.130 →
+0.114, even as gross rises and turnover falls. Only at κ = 10 does the
+improvement land on the bottom line (0.145 → 0.168). Three points on one
+historical path, with a single-path Sharpe standard error of roughly 0.27 over
+14 years, is not evidence of anything at this effect size — including not
+evidence *against*. It is also worth being explicit that the blocked-MPC
+approximation is coarse: three blocks of ~21 days with exponentially decayed
+alphas is a much cruder look-ahead than the lab's daily steps, and the real
+engine's L1 spread term creates a no-trade region the LQ analysis does not have.
+
+I would rather report this as it came out than pick the κ that agrees with the
+simulation. The general lesson is the one the whole study is built around: the
+value of multi-period optimization is established in simulation, where the truth
+is known, and real data is where you check that nothing about the implementation
+is broken.
+
+## 8. What I would actually do
+
+1. **Get a cost term into your single-period objective.** That is the 4×. If you
+   are rebalancing on a calendar to control turnover, this is a strictly better
+   instrument, and the study shows fixed-frequency rules being beaten by every
+   cost-aware policy in the table.
+2. **Discount fast signals in the target itself.** The $\theta(\phi)$ shrinkage
+   of §3 is a one-line change to how a composite is built, and captures a good
+   part of what the DP knows with no dynamic program and no extra machinery.
+3. **Add two to five steps of look-ahead if trading is expensive relative to
+   alpha.** In the cheap-trading half of the map there is under 1% in it and the
+   added model risk is not worth it. In the expensive corner it is 20–46% and the
+   argument reverses completely.
+4. **Do not build the infinite-horizon DP.** It captures ~0.1% more than MPC(5)
+   and cannot take a constraint.
+
+## 9. Honest limitations
+
+1. **The lab's cleanliness is bought with LQ assumptions.** Quadratic costs (no
+   bid-ask spread, so no no-trade region), no constraints, Gaussian everything.
+   Each departure moves the numbers; I do not expect any of them to move the
+   ordering, but the quadratic-cost assumption is the one doing the most work —
+   an L1 spread term generates a no-trade region that captures some of the same
+   benefit the look-ahead is being credited with here.
+2. **Known dynamics is the big one.** The DP is handed the true $\Phi$ and $B$.
+   Estimated decay rates hit the look-ahead policy hardest, because its entire
+   edge is a bet on the decay model; the myopic policy has less to be wrong
+   about. The gaps here are an **upper bound** on what multi-period optimization
+   is worth in practice, and a 9% upper bound is a useful thing to know before
+   building the machinery.
+3. **Two factors, one speed each.** Real books have a spectrum of decay rates and
+   time-varying ones. The hump shape in §5 suggests where the interesting
+   interactions would be.
+4. **The real-data section is one path.** Stated above, restated here: it
+   illustrates, it does not test.
+5. **Nothing here says anything about the cases where multi-period optimization
+   is structural rather than marginal** — hard path-dependent constraints,
+   predictable flows, liquidation schedules, tax lots. In this study the periods
+   couple only through costs and alpha decay, which is the *weakest* form of
+   coupling there is. The right reading of a 9% result is "coupling through costs
+   alone is worth single digits," not "multi-period optimization is worth single
+   digits."
+
+---
+
+**References.** Gârleanu & Pedersen (2013), *Dynamic Trading with Predictable
+Returns and Transaction Costs* — the model structure and the aim-portfolio
+result. Boyd, Busseti, Diamond, Kahn, Koh, Nystrup & Speth (2017),
+*Multi-Period Trading via Convex Optimization* — the MPC framing used in §6.
+
+Simulation code and the exact-CE machinery live in `quantlib.simulate`
+(`solve_dp`, `solve_mpc`, `analytic_ce`); the figure in §3 is a self-contained
+script in this site's repository.
