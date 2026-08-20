@@ -1,0 +1,110 @@
+---
+import { getCollection, render } from "astro:content";
+import PostLayout from "@/layouts/PostLayout.astro";
+import Header from "@/components/Header.astro";
+import Footer from "@/components/Footer.astro";
+import Datetime from "@/components/Datetime.astro";
+import SourcesFooter from "@/components/SourcesFooter.astro";
+import { getCatalystSlug } from "@/utils/getCatalystPaths";
+import { getSortedCatalysts } from "@/utils/getSortedCatalysts";
+import { toTransitionName } from "@/utils/toTransitionName";
+import BackButton from "@/components/BackButton.astro";
+import BackToTopButton from "@/components/BackToTopButton.astro";
+import ShareLinks from "@/components/ShareLinks.astro";
+import config from "@/config";
+
+export async function getStaticPaths() {
+  const catalysts = await getCollection("catalysts");
+  const sorted = getSortedCatalysts(catalysts);
+
+  return sorted.map(catalyst => ({
+    params: { slug: getCatalystSlug(catalyst.id, catalyst.filePath) },
+    props: { catalyst },
+  }));
+}
+
+const { catalyst } = Astro.props;
+
+const {
+  title,
+  description,
+  ogImage: initOgImage,
+  canonicalURL,
+  pubDatetime,
+  modDatetime,
+  timezone,
+  ticker,
+  sources,
+} = catalyst.data;
+
+const { Content } = await render(catalyst);
+
+let ogImageUrl: string | undefined;
+
+if (typeof initOgImage === "string") {
+  ogImageUrl = initOgImage;
+} else if (initOgImage?.src) {
+  ogImageUrl = initOgImage.src;
+}
+
+const ogImage = ogImageUrl
+  ? new URL(ogImageUrl, Astro.url.origin).href
+  : undefined;
+---
+
+<PostLayout
+  title={`${title} | ${config.site.title}`}
+  description={description}
+  ogImage={ogImage}
+  canonicalURL={canonicalURL}
+  pubDatetime={pubDatetime}
+  modDatetime={modDatetime}
+>
+  <Header />
+
+  <BackButton />
+
+  <main
+    id="main-content"
+    class:list={["app-layout", { "mt-8": !config.features.showBackButton }]}
+    data-pagefind-body
+  >
+    <h1
+      style={{ viewTransitionName: toTransitionName(title) }}
+      class="text-accent inline-block text-2xl font-bold sm:text-3xl"
+    >
+      {title}
+    </h1>
+
+    <div class="my-2 flex flex-wrap items-center gap-2">
+      <Datetime {pubDatetime} {modDatetime} {timezone} size="lg" />
+      {
+        ticker && (
+          <span class="border-accent/30 bg-accent/10 text-accent inline-block rounded-full border px-2 py-0.5 text-xs font-semibold">
+            {ticker}
+          </span>
+        )
+      }
+    </div>
+
+    <article
+      id="article"
+      class:list={[
+        "mt-8 w-full",
+        "app-prose max-w-app",
+        "prose-pre:bg-(--shiki-light-bg) dark:prose-pre:bg-(--shiki-dark-bg)",
+      ]}
+    >
+      <Content />
+    </article>
+
+    <SourcesFooter {sources} />
+
+    <hr class="my-8 border-dashed" />
+
+    <BackToTopButton />
+
+    <ShareLinks />
+  </main>
+  <Footer />
+</PostLayout>

@@ -1,0 +1,40 @@
+---
+import type { CollectionEntry } from "astro:content";
+import { getCatalystUrl } from "@/utils/getCatalystPaths";
+import { toTransitionName } from "@/utils/toTransitionName";
+import Datetime from "./Datetime.astro";
+
+type Props = {
+  variant?: "h2" | "h3";
+} & CollectionEntry<"catalysts">;
+
+const { variant: Heading = "h2", id, data, filePath } = Astro.props;
+
+const { title, description, ticker, ...props } = data;
+---
+
+<li class="my-6">
+  <a
+    href={getCatalystUrl(id, filePath, Astro.currentLocale)}
+    class:list={[
+      "text-accent inline-block text-lg font-medium",
+      "decoration-dashed underline-offset-4 hover:underline",
+      "focus-visible:no-underline focus-visible:underline-offset-0",
+    ]}
+  >
+    <Heading transition:name={toTransitionName(title)}>
+      {title}
+    </Heading>
+  </a>
+  <div class="flex flex-wrap items-center gap-2">
+    <Datetime {...props} />
+    {
+      ticker && (
+        <span class="border-accent/30 bg-accent/10 text-accent inline-block rounded-full border px-2 py-0.5 text-xs font-semibold">
+          {ticker}
+        </span>
+      )
+    }
+  </div>
+  <p>{description}</p>
+</li>

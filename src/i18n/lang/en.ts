@@ -4,6 +4,7 @@ export default {
   nav: {
     home: "Home",
     posts: "Research",
+    catalysts: "Market Catalyst",
     tags: "Tags",
     about: "About",
     archives: "Archives",
@@ -46,6 +47,9 @@ export default {
 
     postsTitle: "Research",
     postsDesc: "Systematic quant research — full write-ups, figures, and honest findings.",
+
+    catalystsTitle: "Market Catalyst",
+    catalystsDesc: "Notes on market-moving news as it happens — the event, the reaction, and what it implies.",
 
     archivesTitle: "Archives",
     archivesDesc: "Every research post, by date.",

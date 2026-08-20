@@ -26,6 +26,7 @@ const decodeSegment = (value: string) => {
 
 const navLabels: Record<string, string> = {
   posts: t.nav.posts,
+  catalysts: t.nav.catalysts,
   tags: t.nav.tags,
   about: t.nav.about,
   archives: t.nav.archives,
@@ -39,6 +40,15 @@ if (breadcrumbList[0] === "posts") {
     0,
     2,
     `${t.nav.posts} (${t.pagination.page.toLowerCase()} ${breadcrumbList[1] || 1})`
+  );
+}
+
+// if breadcrumb is Home > Market Catalyst > [page] <etc>
+if (breadcrumbList[0] === "catalysts") {
+  breadcrumbList.splice(
+    0,
+    2,
+    `${t.nav.catalysts} (${t.pagination.page.toLowerCase()} ${breadcrumbList[1] || 1})`
   );
 }
 

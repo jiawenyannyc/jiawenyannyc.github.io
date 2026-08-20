@@ -1,0 +1,35 @@
+---
+/**
+ * "Sources" footer for a market-catalyst note: numbered links out to the
+ * primary reporting and filings the note draws on. Renders nothing if none
+ * are provided.
+ */
+type Props = {
+  sources?: { label: string; url: string }[];
+};
+
+const { sources } = Astro.props;
+---
+
+{
+  sources && sources.length > 0 && (
+    <section class="not-prose mt-10">
+      <h2 class="text-lg font-semibold">Sources</h2>
+      <ol class="mt-3 flex flex-col gap-y-1.5">
+        {sources.map(({ label, url }, i) => (
+          <li class="flex gap-2 text-sm">
+            <span class="text-muted-foreground">{i + 1}.</span>
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-accent decoration-dashed underline-offset-4 hover:underline"
+            >
+              {label} ↗
+            </a>
+          </li>
+        ))}
+      </ol>
+    </section>
+  )
+}

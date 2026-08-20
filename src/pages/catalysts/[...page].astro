@@ -1,0 +1,42 @@
+---
+import type { GetStaticPaths } from "astro";
+import { getCollection } from "astro:content";
+import Layout from "@/layouts/Layout.astro";
+import Header from "@/components/Header.astro";
+import Breadcrumb from "@/components/Breadcrumb.astro";
+import Main from "@/components/Main.astro";
+import CatalystCard from "@/components/CatalystCard.astro";
+import Footer from "@/components/Footer.astro";
+import Pagination from "@/components/Pagination.astro";
+import { getSortedCatalysts } from "@/utils/getSortedCatalysts";
+import { useTranslations } from "@/i18n";
+import config from "@/config";
+
+export const getStaticPaths = (async ({ paginate }) => {
+  const catalysts = await getCollection("catalysts", ({ data }) => !data.draft);
+  return paginate(getSortedCatalysts(catalysts), {
+    pageSize: config.posts.perPage,
+  });
+}) satisfies GetStaticPaths;
+
+const { page } = Astro.props;
+
+const locale = Astro.currentLocale ?? config.site.lang;
+const t = useTranslations(locale);
+---
+
+<Layout title={`${t.pages.catalystsTitle} | ${config.site.title}`}>
+  <Header />
+
+  <Breadcrumb />
+
+  <Main pageTitle={t.pages.catalystsTitle} pageDesc={t.pages.catalystsDesc}>
+    <ul>
+      {page.data.map(data => <CatalystCard {...data} />)}
+    </ul>
+  </Main>
+
+  <Pagination {page} />
+
+  <Footer noMarginTop={page.lastPage > 1} />
+</Layout>

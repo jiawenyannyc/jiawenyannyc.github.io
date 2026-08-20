@@ -43,6 +43,31 @@ const posts = defineCollection({
     }),
 });
 
+export const CATALYST_PATH = "src/content/catalysts";
+
+const catalysts = defineCollection({
+  loader: glob({ pattern: "**/[^_]*.{md,mdx}", base: `./${CATALYST_PATH}` }),
+  schema: ({ image }) =>
+    z.object({
+      author: z.string().default(config.site.author),
+      pubDatetime: z.date(),
+      modDatetime: z.date().optional().nullable(),
+      title: z.string(),
+      draft: z.boolean().optional(),
+      tags: z.array(z.string()).default(["market-catalyst"]),
+      ogImage: image().or(z.string()).optional(),
+      description: z.string(),
+      canonicalURL: z.string().optional(),
+      timezone: z.string().optional(),
+      // --- Catalyst metadata (all optional) ---
+      ticker: z.string().optional(), // e.g. "MRNA"
+      eventDate: z.date().optional(), // date of the market event itself
+      sources: z
+        .array(z.object({ label: z.string(), url: z.string() }))
+        .optional(),
+    }),
+});
+
 const pages = defineCollection({
   loader: glob({ pattern: "**/[^_]*.{md,mdx}", base: "./src/content/pages" }),
   schema: z.object({
@@ -53,4 +78,4 @@ const pages = defineCollection({
   }),
 });
 
-export const collections = { posts, pages };
+export const collections = { posts, catalysts, pages };
